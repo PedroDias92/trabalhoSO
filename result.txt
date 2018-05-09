@@ -1,0 +1,12 @@
+comandos (1).txt
+comandos.txt
+final.txt
+not
+not.c
+notebook
+notebook.c
+olamundo
+olamundo.c
+ola.txt
+out.txt
+result.txt

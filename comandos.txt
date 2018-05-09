@@ -1,0 +1,4 @@
+Este comando lista os ficheiros:
+$ ls
+Agora podemos ordenar estes ficheiros:
+$| head -1
