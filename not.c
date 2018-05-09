@@ -38,9 +38,9 @@ int main(int argc, char ** argv){
     FILE * result2;
     result2 =fopen("result.txt","wr+");
     FILE * bla;
-    bla =fopen("bla.txt","wr+");
+    bla =fopen("zla.txt","wr+");
     FILE *out;
-    out = fopen("out.txt", "w+");
+    out = fopen("out.txt", "wr+");
 
 
     if (fp == NULL)
@@ -74,16 +74,16 @@ int main(int argc, char ** argv){
         }
         //If dollarPipe 
             
-        if(strncmp(dollarPipe,line,strlen(dollarPipe))==0){
-            printf("OLSSSSSS");   
+        if(strncmp(dollarPipe,line,strlen(dollarPipe))==0){     
             char *b =  trim(line + 3);
-            //printf("%s",b);
+            printf("%s",b);
             int d=fork();
             if(d==0){
-                result =fopen("result.txt","wr+");
-                
+                result =fopen("result.txt","r");
                 dup2(fileno(result),0);//STDIN_FILENO
                 dup2(fileno(bla),1); //STDOUT_FILENO
+                fclose(result);
+                fclose(bla);
                 execl("/bin/sh", "/bin/sh", "-c", b, NULL);
             }
             else{
@@ -99,6 +99,7 @@ int main(int argc, char ** argv){
                     } 
                 fputs("\n<<<\n",out);  
                 }
+        printf("OLSSSSSS2\n");  
         }  
         
 
