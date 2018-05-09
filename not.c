@@ -27,12 +27,18 @@ int main(int argc, char ** argv){
     char * line = NULL;
     size_t len = 0;
     ssize_t read;
-    int p=fork();
+    char * line2 = NULL;
+    size_t len2 = 0;
+    ssize_t read2;
     fp = fopen(argv[1], "r");
     char *dollar="$ ";
-    //int result = open("result.txt", O_WRONLY|O_CREAT|O_APPEND|O_TRUNC, 0666);
+    char *dollarPipe="$| ";
     FILE * result;
     result =fopen("result.txt","wr+");
+    FILE * result2;
+    result2 =fopen("result.txt","wr+");
+    FILE * bla;
+    bla =fopen("bla.txt","wr+");
     FILE *out;
     out = fopen("out.txt", "w+");
 
@@ -46,20 +52,67 @@ int main(int argc, char ** argv){
         fputs(line,out);
         if(strncmp(dollar,line,strlen(dollar))==0){
 			char *b =  trim(line + 2);
-            printf("%s",b);
+            //printf("%s",b);
+            int p=fork();
             if(p==0){
                 dup2(fileno(result),1); //STDOUT_FILENO
                 execl("/bin/sh", "/bin/sh", "-c", b, NULL);
             }
-            while ((read = getline(&line, &len, result)) != -1){
-                fputs(line,out);
-            }
+            else{
+                wait(0);
+                fclose(result);
+                fputs("\n>>>\n",out);
+
+                FILE * result2;
+                result2 =fopen("result.txt","r");
+                //escrever para out.txt
+                while ((read2 = getline(&line2, &len2, result2)) != -1){
+                        fputs(line2,out);
+                    } 
+                fputs("\n<<<\n",out);  
+                }
         }
+        //If dollarPipe 
+            
+        if(strncmp(dollarPipe,line,strlen(dollarPipe))==0){
+            printf("OLSSSSSS");   
+            char *b =  trim(line + 3);
+            //printf("%s",b);
+            int d=fork();
+            if(d==0){
+                result =fopen("result.txt","wr+");
+                
+                dup2(fileno(result),0);//STDIN_FILENO
+                dup2(fileno(bla),1); //STDOUT_FILENO
+                execl("/bin/sh", "/bin/sh", "-c", b, NULL);
+            }
+            else{
+                wait(0);
+                fclose(result);
+                fputs("\n>>>\n",out);
+
+                FILE * result2;
+                result2 =fopen("result.txt","r");
+                //escrever para out.txt
+                while ((read2 = getline(&line2, &len2, result2)) != -1){
+                        fputs(line2,out);
+                    } 
+                fputs("\n<<<\n",out);  
+                }
+        }  
+        
+
+        
     }
 
+    
+                   
+
     fclose(fp);
+    
     if (line)
         free(line);
     exit(EXIT_SUCCESS);
 	
+    
 }
