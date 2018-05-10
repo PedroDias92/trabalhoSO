@@ -58,8 +58,6 @@ int main(int argc, char ** argv){
             contador++;
 			contComandos++;
 			char *b =  trim(line + 2);
-            fputs(b,history); // METE COMANDO NO HISTORICO
-            fputs("\n",history);
 
 			// ABRIR RESULTN.TXT
             char firstDollar[50];
@@ -76,15 +74,16 @@ int main(int argc, char ** argv){
             int p=fork();
             if(p==0){
                 dup2(fileno(result1),1); //STDOUT_FILENO
+				fclose(result1);
                 execl("/bin/sh", "/bin/sh", "-c", b, NULL);
             }
             else{
                 wait(0);
                 fclose(result1);
-                fputs("\n>>>\n",out);
 
+                fputs("\n>>>\n",out);
                 FILE * result2;
-                result2 =fopen("result1.txt","r");
+                result2 =fopen(firstDollar,"r");
                 //escrever para out.txt
                 while ((read2 = getline(&line2, &len2, result2)) != -1){
                         fputs(line2,out);
@@ -97,9 +96,6 @@ int main(int argc, char ** argv){
         //COMANDO COM PIPE
         if(strncmp(dollarPipe,line,strlen(dollarPipe))==0){     
             char *b =  trim(line + 3);
-            fputs(b,history); // METE COMANDO NO HISTORICO
-            fputs("\n",history);
-
             contador++;
             
             // ABRIR RESULTN.TXT
@@ -117,7 +113,19 @@ int main(int argc, char ** argv){
             resultN =fopen(filename,"wr+"); //abre o resultN.txt
             int d=fork();
             if(d==0){
-                result1 =fopen("result1.txt","r");
+				
+				// ABRIR RESULTN.TXT
+            	char filename2[50];
+            	char append2[50];
+            	char contadorString2[5];
+            	strcpy (filename2, "result");
+            	strcpy (append2, ".txt");
+            	sprintf(contadorString2,"%d",contador-1); // int to string
+            	strcat(filename2, contadorString2);
+            	strcat(filename2,append2);
+            	// ABRIR RESULTN.TXT
+
+                result1 =fopen(filename2,"r");
                 dup2(fileno(result1),0);//STDIN_FILENO
                 dup2(fileno(resultN),1); //STDOUT_FILENO
                 fclose(result1);
@@ -135,12 +143,13 @@ int main(int argc, char ** argv){
                         fputs(line2,out);
                     } 
                 fputs("<<<\n\n",out);
-                result1 =fopen("result1.txt","w"); // ELIMINA CONTEUDOS DO FICHEIRO PARA EXECUTAR PROXIMO COMANDO  
+                //result1 =fopen("result1.txt","w"); // ELIMINA CONTEUDOS DO FICHEIRO PARA EXECUTAR PROXIMO COMANDO  
             }
 
 
         
         }
+		/**
         //NUMERO DE COMANDO ( $n| )
         if(strncmp(dollarNumber,line,strlen(dollarNumber))==0){ 
             int tempCommand,count=0;  
@@ -168,6 +177,7 @@ int main(int argc, char ** argv){
                 
             }
         }
+		**/
         if (line) free (line);
         line = NULL;
         //if (line2) free (line2);
