@@ -1,5 +1,3 @@
-//gcc notebook.c -o notebook
-//./notebook comandos.txt
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -11,200 +9,180 @@
 
 char * trim(char * s) {
     int l = strlen(s);
-
     while(isspace(s[l - 1])) --l;
     while(* s && isspace(* s)) ++s, --l;
-
     return strndup(s, l);
 }
 
 int main(int argc, char ** argv){
-    //printf("%s",argv[1]);
-	char *comands[10];
-	//pid_t p;
-    int filefd = open("resul.txt", O_WRONLY|O_CREAT|O_APPEND|O_TRUNC, 0666);
-	int filefd2 = open("resul2.txt", O_WRONLY|O_CREAT|O_APPEND|O_TRUNC, 0666);
-	
-    int final = fopen("final.txt","w+");
-
-	int i=0;
-	FILE * fp; 
-    char * line = NULL;
-    size_t len = 0;
-    ssize_t read;
-    int contador=0;
-	//Declaração dos pipes
-	int childbuff;
-	int fd[2];
-	pipe(fd);
-	int p=fork();
     
-    char *dollar="$ ";
+    ///// PARA APANHAR SINAIS ////
+    printf("\nPressione Control C para cancelar escrita para o notebook.\n\n");
+    sleep(2);
+    ////
+    
+    FILE * fp;
+    FILE * result1;
+    FILE * result2;
+    FILE * history;
+    
+
+    char *comands[10];
+    char * line = NULL;
+    char * line2 = NULL;
+    size_t bufsize = 32;
+    size_t len,len2= 0;
+    ssize_t read,read2;
     fp = fopen(argv[1], "r");
+    char *dollar="$ ";
+    char *dollarNumber="$";
+    char *dollarPipe="$| ";
+    //result1 =fopen("result1.txt","wr+");
+    
+    ////// HISTORICO DE COMANDOS PARA SELECCIONARMOS N COMANDO (Exerc. 2.2.1)
+    history =fopen("history.txt","wr+");
+    
+    
+    FILE *out;
+    out = fopen("out.txt", "wr+");
+    int contador=0,contComandos=0;
+
     if (fp == NULL)
         exit(EXIT_FAILURE);
 
     while ((read = getline(&line, &len, fp)) != -1) {
-		//printf("%s\n",line);
-        //fputs(line,newfile);
-		if(strncmp(dollar,line,strlen(dollar))==0){
-			char *b =  trim(line + 3);
-			//printf("%s\n",b);
-            contador++;
-            comands[i++]=b;
-            
-		}
-    }
-	
+        fputs(line,out);
 
-	
-	if(p==0){
-		char foo[1024];
-		close(fd[0]);
-		dup2(fd[1],1); //STDOUT_FILENO
-		strcat(comands[0]," | tee resul.txt");
-		execl("/bin/sh", "/bin/sh", "-c", comands[0], NULL);
-	}
-	else{
-		close(fd[1]);
-		dup2(fd[0],0); //STDERR_FILENO
-		strcat(comands[1]," | tee resul2.txt");
-		execl("/bin/sh", "/bin/sh", "-c", comands[1], NULL);
-	}
-	
-    int flag=0;
-	while ((read = getline(&line, &len, fp)) != -1) {
-		fputs(line,final);
-		//if(flag==1){
-		//	int result = fopen("result.txt","wr+");
-		//	while ((read = getline(&line, &len, result)) != -1) {
-		//		fputs(line,final);
-		//	flag=0;
-		//	}
-		//}
-		if(strncmp(dollar,line,strlen(dollar))==0){
-			flag=1;
-		}
+        //COMANDO SIMPLES
+        if(strncmp(dollar,line,strlen(dollar))==0){
+            contador++;
+			contComandos++;
+			char *b =  trim(line + 2);
+            fputs(b,history); // METE COMANDO NO HISTORICO
+            fputs("\n",history);
+
+			// ABRIR RESULTN.TXT
+            char firstDollar[50];
+            char append[50];
+            char contadorString[5];
+            strcpy (firstDollar, "result");
+            strcpy (append, ".txt");
+            sprintf(contadorString,"%d",contador); // int to string
+            strcat(firstDollar, contadorString);
+            strcat(firstDollar,append);
+            // ABRIR RESULTN.TXT
+			result1 =fopen(firstDollar,"wr+");
+
+            int p=fork();
+            if(p==0){
+                dup2(fileno(result1),1); //STDOUT_FILENO
+                execl("/bin/sh", "/bin/sh", "-c", b, NULL);
+            }
+            else{
+                wait(0);
+                fclose(result1);
+                fputs("\n>>>\n",out);
+
+                FILE * result2;
+                result2 =fopen("result1.txt","r");
+                //escrever para out.txt
+                while ((read2 = getline(&line2, &len2, result2)) != -1){
+                        fputs(line2,out);
+                    } 
+                fputs("<<<\n\n",out);  
+                }
+            
+        }
+
+        //COMANDO COM PIPE
+        if(strncmp(dollarPipe,line,strlen(dollarPipe))==0){     
+            char *b =  trim(line + 3);
+            fputs(b,history); // METE COMANDO NO HISTORICO
+            fputs("\n",history);
+
+            contador++;
+            
+            // ABRIR RESULTN.TXT
+            char filename[50];
+            char append[50];
+            char contadorString[5];
+            strcpy (filename, "result");
+            strcpy (append, ".txt");
+            sprintf(contadorString,"%d",contador); // int to string
+            strcat(filename, contadorString);
+            strcat(filename,append);
+            // ABRIR RESULTN.TXT
+            
+            FILE * resultN;
+            resultN =fopen(filename,"wr+"); //abre o resultN.txt
+            int d=fork();
+            if(d==0){
+                result1 =fopen("result1.txt","r");
+                dup2(fileno(result1),0);//STDIN_FILENO
+                dup2(fileno(resultN),1); //STDOUT_FILENO
+                fclose(result1);
+                fclose(resultN);
+                execl("/bin/sh", "/bin/sh", "-c", b, NULL);
+            }
+            else{
+                wait(0);
+                fclose(result1);
+                fputs("\n>>>\n",out);
+                FILE * result2;
+                result2 =fopen(filename,"r");
+                //escrever para out.txt
+                while ((read2 = getline(&line2, &len2, result2)) != -1){
+                        fputs(line2,out);
+                    } 
+                fputs("<<<\n\n",out);
+                result1 =fopen("result1.txt","w"); // ELIMINA CONTEUDOS DO FICHEIRO PARA EXECUTAR PROXIMO COMANDO  
+            }
+
+
+        
+        }
+        //NUMERO DE COMANDO ( $n| )
+        if(strncmp(dollarNumber,line,strlen(dollarNumber))==0){ 
+            int tempCommand,count=0;  
+            char *b =  trim(line + 1); // Para apanhar o número do comando que queremos
+            if ((b[0]>='0')&&(b[0]<='9')){
+                tempCommand = b[0] - '0';  // passei o char para int
+                printf("%s",line);
+                fputs("\n>>>\n",out);
+                
+                if (tempCommand>contComandos + contador-1){
+                    // Se o nr do comando que demos for superior ao historico de comandos que temos, cancela o processo
+                    printf("Nr. comando inválido. A cancelar...");exit(EXIT_FAILURE);
+                    // TEMOS DE VOLTAR À VERSAO ORIGINAL DO NOTEBOOK NESTE SITIO.
+                }
+                else{
+                    while (count==tempCommand){
+                        read2 = getline(&line2, &len2, history);
+                        if (read2 == -1) break;
+                        printf("%s",line2);
+                        count++;
+                    }
+                }
+                fputs(line2,out);
+                fputs("<<<\n\n",out);
+                
+            }
+        }
+        if (line) free (line);
+        line = NULL;
+        //if (line2) free (line2);
+        //line2 = NULL;
     }
-    if (line)
-        free(line);
+
+    
+                   
+
+    printf("Numero de comandos com pipes lidos: %d\n",contador-1);
+    printf("Numero de comandos totais lidos: %d\nConcluído.\n",contComandos + contador-1);
+    fclose(fp);
+    fclose(result1);
+    fclose(history);
     exit(EXIT_SUCCESS);
 	
-	
-	
-	
+    
 }
-
-
-/**
- * Tentar fazer um ciclo a partir do codigo em baixo. e depois executar um o array comands
- * 
- * 
- if(contador==3)
-	{
-		pid = fork();
-
-		if(pid == 0)
-		{
-			close(pipefd1[0]);
-			dup2(pipefd1[1], 1);
-			execvp(arrayStrings2[0], arrayStrings2);
-			exit(0);
-		}
-		close(pipefd1[1]);
-
-		pid=fork();
-		if(pid == 0)
-		{
-			close(pipefd1[1]);
-			close(pipefd2[0]);
-			dup2(pipefd1[0],0);
-			dup2(pipefd2[1],1);
-			execvp(arrayStrings3[0], arrayStrings3);
-			exit(0);
-		}
-		close(pipefd2[1]);
-		close(pipefd1[0]);
-
-		pid = fork();
-		if(pid==0)
-		{
-			close(pipefd2[1]);
-			dup2(pipefd2[0],0);
-			close(out[0]);
-			dup2(out[1], 1);
-			execvp(arrayStrings4[0], arrayStrings4);
-			exit(0);
-		}
-		else
-		{
-			char foo[1024];
-			close(out[1]);
-			read(out[0], foo, sizeof(foo));
-			printf("%s\n", foo);
-			strcpy(tarefas[idx].output, foo);
-			memset(foo, '\0', 1024);
-			wait(0);
-		}
-	}
-
-	//Encadeamento caso sejam dois comandos
-	if(contador==2)
-	{
-		pid = fork();
-		if(pid==0)
-		{
-			close(pipefd1[0]);
-			dup2(pipefd1[1], 1);
-			execvp(arrayStrings2[0], arrayStrings2);
-			exit(0);
-		}
-		close(pipefd1[1]);
-
-		pid=fork();
-		if(pid==0)
-		{
-			close(pipefd1[1]);
-			dup2(pipefd1[0],0);
-			close(out[0]);
-			dup2(out[1], 1);
-			execvp(arrayStrings3[0], arrayStrings3);
-			exit(0);
-		}
-		else
-		{
-			close(pipefd1[0]);
-			char foo[1024];
-			close(out[1]);
-			read(out[0], foo, sizeof(foo));
-			printf("%s\n", foo);
-			strcpy(tarefas[idx].output, foo);
-			memset(foo, '\0', 1024);
-			wait(0);
-		}
-	}
-
-	//Execução caso seja só um comando
-	if(contador==1)
-	{
-		pid=fork();
-		if(pid==0)
-		{
-			close(out[0]);
-			dup2(out[1], 1);
-			execvp(arrayStrings2[0], arrayStrings2);
-			exit(0);
-		}
-		else
-		{
-			char foo[1024];
-			close(out[1]);
-			read(out[0], foo, sizeof(foo));
-			printf("%s\n", foo);
-			strcpy(tarefas[idx].output, foo);
-			memset(foo, '\0', 1024);			
-			wait(0);
-		}
-	}
-
-    **/
