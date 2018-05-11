@@ -1,2 +1,42 @@
 gcc notebook.c -o notebook
 ./notebook comandos.txt
+
+RESUMO:
+Neste trabalho pretende-se construir um sistema para processamento de notebooks, que misturam fragmentos
+de codigo, resultados da execuc¸ ´ ao, e documentac¸ ˜ ao. Neste contexto, um notebook ˜ e um ficheiro ´
+de texto que depois de processado e modificado de modo a incorporar resultados da execuc¸ ´ ao de c ˜ odigo ´
+ou comandos nele embebidos. Como exemplo, um ficheiro exemplo.nb com o conteudo: ´
+Este comando lista os ficheiros:
+
+  $ ls
+  Agora podemos ordenar estes ficheiros:
+  $| sort
+  E escolher o primeiro:
+  $| head -1
+
+Este ficheiro ao ser processado, leva a que as linhas comec¸adas por $ sejam interpretas como comandos
+que serao executados, sendo o resultado produzido inserido imediatamente a seguir, delimitado ˜
+por >>> e <<<. As linhas comec¸adas por $| executam comandos que tem como ˆ stdin o resultado do
+comando anterior. O ficheiro ficara ent ´ ao com o conte ˜ udo sendo algo como: ´
+
+  Este comando lista os ficheiros:
+  $ ls
+  >>>
+  coisa.c
+  a.out
+  batata.c
+  <<<
+  Agora podemos ordenar estes ficheiros:
+  $| sort
+  >>>
+  a.out
+  batata.c
+  coisa.c
+  <<<
+  E escolher o primeiro:
+  $| head -1
+  >>>
+  a.out
+  <<<
+
+
