@@ -16,9 +16,50 @@ char * trim(char * s) {
     return strndup(s, l);
 }
 
+
+void re_processamento(char * filename){
+    char * line = NULL;
+    size_t bufsize = 32;
+    size_t len=0;
+    ssize_t read=2;
+    FILE * fp; 
+    fp = fopen(filename, "r");
+    FILE *REDO;
+    REDO = fopen("REDO.txt", "wr+");
+    
+    
+    if (fp == NULL)
+        exit(EXIT_FAILURE);
+
+    while ((read = getline(&line, &len, fp)) != -1){
+        if(strncmp(">>>\n",line,strlen(">>>\n"))==0){
+            read = getline(&line, &len, fp);
+            while(strncmp("<<<\n",line,strlen("<<<\n"))!=0)
+                read = getline(&line, &len, fp);
+        }
+        if(strncmp("<<<\n",line,strlen("<<<\n"))==0){
+            read = getline(&line, &len, fp);
+        }
+        //printf("%s",line);
+        fputs(line,REDO);
+        
+        
+    }
+    fclose(fp);
+    fclose(REDO);
+    rename("REDO.txt",filename);
+
+    if (line) free (line);
+        line = NULL;
+        //if (line2) free (line2);
+        //line2 = NULL;
+}
+
 int main(int argc, char ** argv){
     
-    
+	char *REDO = argv[1];
+    re_processamento(REDO);
+
     FILE * fp;
     FILE * result1;
     FILE * result2;
@@ -35,9 +76,8 @@ int main(int argc, char ** argv){
     ssize_t read,read2;
     fp = fopen(argv[1], "r");
     char *dollar="$ ";
-    char *dollarNumber="$";
     char *dollarPipe="$| ";
-    //result1 =fopen("result1.txt","wr+");
+    
     
     ////// HISTORICO DE COMANDOS PARA SELECCIONARMOS N COMANDO (Exerc. 2.2.1)
     history =fopen("history.txt","wr+");
@@ -82,19 +122,20 @@ int main(int argc, char ** argv){
                 wait(0);
                 fclose(result1);
 
-                fputs("\n>>>\n",out);
+                fputs(">>>\n",out);
                 FILE * result2;
                 result2 =fopen(firstDollar,"r");
                 //escrever para out.txt
                 while ((read2 = getline(&line2, &len2, result2)) != -1){
                         fputs(line2,out);
                     } 
-                fputs("<<<\n\n",out);  
+                fputs("<<<\n",out);  
                 }
             
         }
 
-        //COMANDO COM PIPE
+        //---------------------------------------------------------------COMANDO COM PIPE----------------------------------------------------------------------------
+		//-----------------------------------------------------------------------------------------------------------------------------------------------------------
         if(strncmp(dollarPipe,line,strlen(dollarPipe))==0){     
             char *b =  trim(line + 3);
             contador++;
@@ -137,15 +178,14 @@ int main(int argc, char ** argv){
             else{
                 wait(0);
                 fclose(result1);
-                fputs("\n>>>\n",out);
+                fputs(">>>\n",out);
                 FILE * result2;
                 result2 =fopen(filename,"r");
                 //escrever para out.txt
                 while ((read2 = getline(&line2, &len2, result2)) != -1){
                         fputs(line2,out);
                     } 
-                fputs("<<<\n\n",out);
-                //result1 =fopen("result1.txt","w"); // ELIMINA CONTEUDOS DO FICHEIRO PARA EXECUTAR PROXIMO COMANDO  
+                fputs("<<<\n",out);  
             }
 
 
@@ -166,7 +206,7 @@ int main(int argc, char ** argv){
 				char *b =  trim(line + 4);
 				int number = atoi(&line[1]);
 				contador++;
-				printf("comando nº: %d \t %s\t com STDIN o comando %d\n",contador,b,number);
+				printf("comando nº: %d \t %s\t com STDIN do comando %d\n",contador,b,number);
 				
 				// ABRIR RESULTN.TXT       Para colocar o STDOUT
 				char filename[50];
@@ -205,14 +245,14 @@ int main(int argc, char ** argv){
 				else{
 					wait(0);
 					fclose(result1);
-					fputs("\n>>>\n",out);
+					fputs(">>>\n",out);
 					FILE * result2;
 					result2 =fopen(filename,"r");
 					//escrever para out.txt
 					while ((read2 = getline(&line2, &len2, result2)) != -1){
 							fputs(line2,out);
 						} 
-					fputs("<<<\n\n",out);
+					fputs("<<<\n",out);
 					//result1 =fopen("result1.txt","w"); // ELIMINA CONTEUDOS DO FICHEIRO PARA EXECUTAR PROXIMO COMANDO  
 				}
 
@@ -236,11 +276,11 @@ int main(int argc, char ** argv){
     
                    
 
-    printf("Numero de comandos com pipes lidos: %d\n",contador-1);
-    printf("Numero de comandos totais lidos: %d\nConcluído.\n",contComandos + contador-1);
     fclose(fp);
     fclose(result1);
     fclose(history);
+	fputs("\n",out);	// se não meter isto depois no re-processamento algo bate mal !!!
+	rename("out.txt",argv[1]);
     exit(EXIT_SUCCESS);
 	
     
