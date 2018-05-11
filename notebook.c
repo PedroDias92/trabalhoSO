@@ -6,6 +6,8 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <regex.h>
+
 
 char * trim(char * s) {
     int l = strlen(s);
@@ -16,16 +18,14 @@ char * trim(char * s) {
 
 int main(int argc, char ** argv){
     
-    ///// PARA APANHAR SINAIS ////
-    printf("\nPressione Control C para cancelar escrita para o notebook.\n\n");
-    sleep(2);
-    ////
     
     FILE * fp;
     FILE * result1;
     FILE * result2;
     FILE * history;
     
+	regex_t regex;
+    int reti;
 
     char *comands[10];
     char * line = NULL;
@@ -55,9 +55,10 @@ int main(int argc, char ** argv){
 
         //COMANDO SIMPLES
         if(strncmp(dollar,line,strlen(dollar))==0){
-            contador++;
+			contador++;
 			contComandos++;
 			char *b =  trim(line + 2);
+			printf("comando nº: %d \t %s\n",contador,b);
 
 			// ABRIR RESULTN.TXT
             char firstDollar[50];
@@ -97,8 +98,9 @@ int main(int argc, char ** argv){
         if(strncmp(dollarPipe,line,strlen(dollarPipe))==0){     
             char *b =  trim(line + 3);
             contador++;
+			printf("comando nº: %d \t %s\n",contador,b);
             
-            // ABRIR RESULTN.TXT
+            // ABRIR RESULTN.TXT           MUDAR OS NOMES DISTO!!!!
             char filename[50];
             char append[50];
             char contadorString[5];
@@ -149,35 +151,82 @@ int main(int argc, char ** argv){
 
         
         }
-		/**
-        //NUMERO DE COMANDO ( $n| )
-        if(strncmp(dollarNumber,line,strlen(dollarNumber))==0){ 
-            int tempCommand,count=0;  
-            char *b =  trim(line + 1); // Para apanhar o número do comando que queremos
-            if ((b[0]>='0')&&(b[0]<='9')){
-                tempCommand = b[0] - '0';  // passei o char para int
-                printf("%s",line);
-                fputs("\n>>>\n",out);
-                
-                if (tempCommand>contComandos + contador-1){
-                    // Se o nr do comando que demos for superior ao historico de comandos que temos, cancela o processo
-                    printf("Nr. comando inválido. A cancelar...");exit(EXIT_FAILURE);
-                    // TEMOS DE VOLTAR À VERSAO ORIGINAL DO NOTEBOOK NESTE SITIO.
-                }
-                else{
-                    while (count==tempCommand){
-                        read2 = getline(&line2, &len2, history);
-                        if (read2 == -1) break;
-                        printf("%s",line2);
-                        count++;
-                    }
-                }
-                fputs(line2,out);
-                fputs("<<<\n\n",out);
-                
-            }
+
+		
+        //---------------------------------------------------------------NUMERO DE COMANDO ( $n| )-------------------------------------------------------
+        /* Compile regular expression */
+        reti = regcomp(&regex, "$[1-9][0-9]*|", 0);
+        if( reti ){ fprintf(stderr, "Could not compile regex\n"); exit(1); }
+
+		/* Execute regular expression */
+        reti = regexec(&regex, line, 0, NULL, 0);
+        if( !reti ){
+                //printf("\n Match %s \n",line);
+
+				char *b =  trim(line + 4);
+				int number = atoi(&line[1]);
+				contador++;
+				printf("comando nº: %d \t %s\t com STDIN o comando %d\n",contador,b,number);
+				
+				// ABRIR RESULTN.TXT       Para colocar o STDOUT
+				char filename[50];
+				char append[50];
+				char contadorString[5];
+				strcpy (filename, "result");
+				strcpy (append, ".txt");
+				sprintf(contadorString,"%d",contador); // int to string
+				strcat(filename, contadorString);
+				strcat(filename,append);
+				// ABRIR RESULTN.TXT		Para colocar o STDOUT
+				
+				FILE * resultN;
+				resultN =fopen(filename,"wr+"); //abre o resultN.txt
+				int d=fork();
+				if(d==0){
+					
+					// ABRIR RESULTN.TXT de onde se vai ler o STDIN
+					char filename2[50];
+					char append2[50];
+					char contadorString2[5];
+					strcpy (filename2, "result");
+					strcpy (append2, ".txt");
+					sprintf(contadorString2,"%d",number); // A CHAVE ESTA AQUI! vai buscar o N de "$N|"  int number = atoi(&line[1]);
+					strcat(filename2, contadorString2);
+					strcat(filename2,append2);
+					// ABRIR RESULTN.TXT		de onde se vai ler o STDIN
+
+					result1 =fopen(filename2,"r");
+					dup2(fileno(result1),0);//STDIN_FILENO
+					dup2(fileno(resultN),1); //STDOUT_FILENO
+					fclose(result1);
+					fclose(resultN);
+					execl("/bin/sh", "/bin/sh", "-c", b, NULL);
+				}
+				else{
+					wait(0);
+					fclose(result1);
+					fputs("\n>>>\n",out);
+					FILE * result2;
+					result2 =fopen(filename,"r");
+					//escrever para out.txt
+					while ((read2 = getline(&line2, &len2, result2)) != -1){
+							fputs(line2,out);
+						} 
+					fputs("<<<\n\n",out);
+					//result1 =fopen("result1.txt","w"); // ELIMINA CONTEUDOS DO FICHEIRO PARA EXECUTAR PROXIMO COMANDO  
+				}
+
         }
-		**/
+		
+
+
+
+
+
+
+
+
+
         if (line) free (line);
         line = NULL;
         //if (line2) free (line2);
