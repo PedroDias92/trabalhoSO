@@ -1,6 +1,6 @@
 /**
  * $ gcc notebook.c -o notebook
- * $ notebook comandos.txt
+ * $ ./notebook comandos.txt
 Passos do programa:
 1- Cria uma nova directoria "tmp" (temporaria)
 2- Cria um ficheiro "out.txt" , e por cada linha lida do ficheiro de input (neste caso "comandos.txt") copia a linha para o ficheiro "out.txt".
