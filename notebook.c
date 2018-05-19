@@ -11,6 +11,10 @@
 #include <sys/stat.h> // para criar o directorio /tmp
 #include <dirent.h> //para eliminar os conteudos de "/tmp"
 
+static volatile int running = 1;
+void handler(int dummy){
+    running = 0;
+}
 
 
 void removeFilesFromTmp(char *folder){
@@ -101,6 +105,7 @@ void re_processamento(char * filename){
 
 int main(int argc, char ** argv){
     
+    signal(SIGINT, handler);
 	char *REDO = argv[1];
     re_processamento(REDO);
 
@@ -138,12 +143,12 @@ int main(int argc, char ** argv){
     if (fp == NULL)
         exit(EXIT_FAILURE);
 
-    while ((read = getline(&line, &len, fp)) != -1 && flagErrorFork==1) {
+    while ((read = getline(&line, &len, fp)) != -1 && flagErrorFork==1 && (running)) {
         fputs(line,out);
 
         //---------------------------------------------COMANDO SIMPLES--------------------------------------------
         //-------------------------------------------------------------------------------------------------------
-        if(strncmp(dollar,line,strlen(dollar))==0){
+        if(strncmp(dollar,line,strlen(dollar))==0 && (running)){
 			contador++;
 			contComandos++;
 			char *b =  trim(line + 2);
@@ -194,9 +199,12 @@ int main(int argc, char ** argv){
             
         }
 
+
+        //sleep(2);
+
         //---------------------------------------------------------------COMANDO COM PIPE----------------------------------------------------------------------------
 		//-----------------------------------------------------------------------------------------------------------------------------------------------------------
-        if(strncmp(dollarPipe,line,strlen(dollarPipe))==0){     
+        if(strncmp(dollarPipe,line,strlen(dollarPipe))==0 && (running)){     
             char *b =  trim(line + 3);
             contador++;
 			printf("comando nº: %d \t %s\n",contador,b);
@@ -261,6 +269,7 @@ int main(int argc, char ** argv){
         
         }
 
+        //sleep(2);
 		
         //---------------------------------------------------------------NUMERO DE COMANDO ( $n| )-------------------------------------------------------
         /* Compile regular expression */
@@ -269,7 +278,7 @@ int main(int argc, char ** argv){
 
 		/* Execute regular expression */
         reti = regexec(&regex, line, 0, NULL, 0);
-        if( !reti ){
+        if( !reti && (running)){
                 //printf("\n Match %s \n",line);
 
 				char *b =  trim(line + 4);
@@ -349,21 +358,20 @@ int main(int argc, char ** argv){
         //if (line2) free (line2);
         //line2 = NULL;
     }
-
-    
-                   
+                  
 
     fclose(fp);
     fclose(result1);
     fclose(history);
 	fputs("\n",out);	// se não meter isto depois no re-processamento algo bate mal !!!
-	sleep(2);
-    if(flagErrorFork==1){   //se flag == 1 então tudo correu bem
+	//sleep(2);
+
+    if(flagErrorFork==1 && (running)){   //se flag == 1 e não houve um CTR-C ,então tudo correu bem
         rename("tmp/out.txt",argv[1]);
         removeFilesFromTmp("tmp");
         
     }   
-    else{                   //senão elimina o out.txt e o ficheiro de entrada fica igual
+    else{                   //senão elimina todo o conteudo da pasta tmp é apagado
         removeFilesFromTmp("tmp");
         
     }
