@@ -7,7 +7,26 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <regex.h>
+#include <errno.h>
+#include <sys/stat.h> // para criar o directorio /tmp
+#include <dirent.h> //para eliminar os conteudos de "/tmp"
 
+
+
+void removeFilesFromTmp(char *folder){
+    // These are data types defined in the "dirent" header
+        DIR *theFolder = opendir(folder);
+        struct dirent *next_file;
+        char filepath[256];
+
+        while ( (next_file = readdir(theFolder)) != NULL )
+        {
+            // build the path for each file in the folder
+            sprintf(filepath, "%s/%s", folder, next_file->d_name);
+            remove(filepath);
+        }
+        closedir(theFolder);
+}
 
 char * trim(char * s) {
     int l = strlen(s);
@@ -16,6 +35,31 @@ char * trim(char * s) {
     return strndup(s, l);
 }
 
+int forkError(int status,char *b){
+    int result=1;
+    if(WIFEXITED(status))
+                {
+                    if(WEXITSTATUS(status) != 0)
+                    {
+                        printf("ERRO no comando %s\n",b);
+                        printf("fork: %s\n", strerror(errno));
+                        result=0;
+                    }
+                }
+                else if (WIFSIGNALED(status))
+                {
+                    printf("terminated because it didn't catch signal number %d\n", WTERMSIG(status));
+                    result=0;
+                }
+                else
+                {
+                    printf("ERRO no comando %s\n",b);
+                    printf("fork: %s\n", strerror(errno));
+                    result=0;
+                }
+
+    return result;
+}
 
 void re_processamento(char * filename){
     char * line = NULL;
@@ -60,6 +104,13 @@ int main(int argc, char ** argv){
 	char *REDO = argv[1];
     re_processamento(REDO);
 
+    //cria a pasta /tmp/ com os resultsN
+    struct stat st = {0};
+
+    if (stat("tmp", &st) == -1) {
+        mkdir("tmp", 0700);
+    }
+
     FILE * fp;
     FILE * result1;
     FILE * result2;
@@ -78,22 +129,20 @@ int main(int argc, char ** argv){
     char *dollar="$ ";
     char *dollarPipe="$| ";
     
-    
-    ////// HISTORICO DE COMANDOS PARA SELECCIONARMOS N COMANDO (Exerc. 2.2.1)
-    history =fopen("history.txt","wr+");
-    
+    int flagErrorFork=1;
     
     FILE *out;
-    out = fopen("out.txt", "wr+");
+    out = fopen("tmp/out.txt", "wr+");
     int contador=0,contComandos=0;
 
     if (fp == NULL)
         exit(EXIT_FAILURE);
 
-    while ((read = getline(&line, &len, fp)) != -1) {
+    while ((read = getline(&line, &len, fp)) != -1 && flagErrorFork==1) {
         fputs(line,out);
 
-        //COMANDO SIMPLES
+        //---------------------------------------------COMANDO SIMPLES--------------------------------------------
+        //-------------------------------------------------------------------------------------------------------
         if(strncmp(dollar,line,strlen(dollar))==0){
 			contador++;
 			contComandos++;
@@ -104,7 +153,7 @@ int main(int argc, char ** argv){
             char firstDollar[50];
             char append[50];
             char contadorString[5];
-            strcpy (firstDollar, "result");
+            strcpy (firstDollar, "tmp/result");
             strcpy (append, ".txt");
             sprintf(contadorString,"%d",contador); // int to string
             strcat(firstDollar, contadorString);
@@ -117,9 +166,20 @@ int main(int argc, char ** argv){
                 dup2(fileno(result1),1); //STDOUT_FILENO
 				fclose(result1);
                 execl("/bin/sh", "/bin/sh", "-c", b, NULL);
+                exit(-1);
+                
             }
             else{
-                wait(0);
+                //wait(0);
+                int status;
+                wait(&status); 
+                
+                flagErrorFork=forkError(status,b);
+                if( flagErrorFork == 0){ // 0 deu erro no fork
+                    break;
+                }
+                
+                
                 fclose(result1);
 
                 fputs(">>>\n",out);
@@ -145,7 +205,7 @@ int main(int argc, char ** argv){
             char filename[50];
             char append[50];
             char contadorString[5];
-            strcpy (filename, "result");
+            strcpy (filename, "tmp/result");
             strcpy (append, ".txt");
             sprintf(contadorString,"%d",contador); // int to string
             strcat(filename, contadorString);
@@ -161,7 +221,7 @@ int main(int argc, char ** argv){
             	char filename2[50];
             	char append2[50];
             	char contadorString2[5];
-            	strcpy (filename2, "result");
+            	strcpy (filename2, "tmp/result");
             	strcpy (append2, ".txt");
             	sprintf(contadorString2,"%d",contador-1); // int to string
             	strcat(filename2, contadorString2);
@@ -174,9 +234,18 @@ int main(int argc, char ** argv){
                 fclose(result1);
                 fclose(resultN);
                 execl("/bin/sh", "/bin/sh", "-c", b, NULL);
+                exit(-1);
             }
             else{
-                wait(0);
+                //wait(0);
+                int status;
+                wait(&status); 
+                
+                flagErrorFork=forkError(status,b);
+                if( flagErrorFork == 0){ // 0 deu erro no fork
+                    break;
+                }
+
                 fclose(result1);
                 fputs(">>>\n",out);
                 FILE * result2;
@@ -212,7 +281,7 @@ int main(int argc, char ** argv){
 				char filename[50];
 				char append[50];
 				char contadorString[5];
-				strcpy (filename, "result");
+				strcpy (filename, "tmp/result");
 				strcpy (append, ".txt");
 				sprintf(contadorString,"%d",contador); // int to string
 				strcat(filename, contadorString);
@@ -228,7 +297,7 @@ int main(int argc, char ** argv){
 					char filename2[50];
 					char append2[50];
 					char contadorString2[5];
-					strcpy (filename2, "result");
+					strcpy (filename2, "tmp/result");
 					strcpy (append2, ".txt");
 					sprintf(contadorString2,"%d",number); // A CHAVE ESTA AQUI! vai buscar o N de "$N|"  int number = atoi(&line[1]);
 					strcat(filename2, contadorString2);
@@ -241,9 +310,17 @@ int main(int argc, char ** argv){
 					fclose(result1);
 					fclose(resultN);
 					execl("/bin/sh", "/bin/sh", "-c", b, NULL);
+                    exit(-1);
 				}
 				else{
-					wait(0);
+					//wait(0);
+                    int status;
+                    wait(&status); 
+                    
+                    flagErrorFork=forkError(status,b);
+                    if( flagErrorFork == 0){ // 0 deu erro no fork
+                        break;
+                    }
 					fclose(result1);
 					fputs(">>>\n",out);
 					FILE * result2;
@@ -280,7 +357,16 @@ int main(int argc, char ** argv){
     fclose(result1);
     fclose(history);
 	fputs("\n",out);	// se não meter isto depois no re-processamento algo bate mal !!!
-	rename("out.txt",argv[1]);
+	sleep(2);
+    if(flagErrorFork==1){   //se flag == 1 então tudo correu bem
+        rename("tmp/out.txt",argv[1]);
+        removeFilesFromTmp("tmp");
+        
+    }   
+    else{                   //senão elimina o out.txt e o ficheiro de entrada fica igual
+        removeFilesFromTmp("tmp");
+        
+    }
     exit(EXIT_SUCCESS);
 	
     
