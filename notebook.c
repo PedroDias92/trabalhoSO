@@ -1,3 +1,17 @@
+/**
+ * $ gcc notebook.c -o notebook
+ * $ notebook comandos.txt
+Passos do programa:
+1- Cria uma nova directoria "tmp" (temporaria)
+2- Cria um ficheiro um ficheiro "out.txt" , e por cada linha lida do ficheiro de input (neste caso "comandos.txt") copia a linha para o ficheiro "out.txt".
+3- Por cada linha (comando) começado $ ou $| ou $n| executa o comando atraves um "exec" (usando de um processo filho) cria um ficheiro com o nome generico resultN.txt (em que N é o numero do comando)
+ na directoria "tmp"
+4- No fim caso não ocorra nenhum erro na execução dos comandos ou não o utilizador não termine o programa (CTR-C) 
+o ficheiro de input é substituido pelo "out.txt"
+5- todo o conteudo da directoria "tmp" é eliminado
+**/
+
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -11,17 +25,34 @@
 #include <sys/stat.h> // para criar o directorio /tmp
 #include <dirent.h> //para eliminar os conteudos de "/tmp"
 
+
+
+
+char filename[50];
+
+//Para apanhar o CTRL-C
 static volatile int running = 1;
 void handler(int dummy){
     running = 0;
 }
 
 
+void strcatFilename(int contador){
+    char append[50];
+    char contadorString[5];
+    strcpy (filename, "tmp/result");
+    strcpy (append, ".txt");
+    sprintf(contadorString,"%d",contador); // int to string
+    strcat(filename, contadorString);
+    strcat(filename,append);
+}
+
+//Remove os ficheiros da directoria "tmp"
 void removeFilesFromTmp(char *folder){
     // These are data types defined in the "dirent" header
         DIR *theFolder = opendir(folder);
         struct dirent *next_file;
-        char filepath[256];
+        char filepath[257];
 
         while ( (next_file = readdir(theFolder)) != NULL )
         {
@@ -32,6 +63,7 @@ void removeFilesFromTmp(char *folder){
         closedir(theFolder);
 }
 
+//Separa os comandos dos $'s
 char * trim(char * s) {
     int l = strlen(s);
     while(isspace(s[l - 1])) --l;
@@ -39,6 +71,7 @@ char * trim(char * s) {
     return strndup(s, l);
 }
 
+//Caso algum processo filho de erro
 int forkError(int status,char *b){
     int result=1;
     if(WIFEXITED(status))
@@ -65,13 +98,15 @@ int forkError(int status,char *b){
     return result;
 }
 
-void re_processamento(char * filename){
+
+//Elimina todo o conteudo entre >>> e <<< do ficheiro de input
+void re_processamento(char * file){
     char * line = NULL;
     size_t bufsize = 32;
     size_t len=0;
     ssize_t read=2;
     FILE * fp; 
-    fp = fopen(filename, "r");
+    fp = fopen(file, "r");
     FILE *REDO;
     REDO = fopen("REDO.txt", "wr+");
     
@@ -95,19 +130,17 @@ void re_processamento(char * filename){
     }
     fclose(fp);
     fclose(REDO);
-    rename("REDO.txt",filename);
+    rename("REDO.txt",file);
 
     if (line) free (line);
         line = NULL;
-        //if (line2) free (line2);
-        //line2 = NULL;
 }
 
 int main(int argc, char ** argv){
     
-    signal(SIGINT, handler);
+    signal(SIGINT, handler);  //CTRL-C
 	char *REDO = argv[1];
-    re_processamento(REDO);
+    re_processamento(REDO);   //Elimina todo o conteudo entre >>> e <<< do ficheiro de input
 
     //cria a pasta /tmp/ com os resultsN
     struct stat st = {0};
@@ -119,7 +152,6 @@ int main(int argc, char ** argv){
     FILE * fp;
     FILE * result1;
     FILE * result2;
-    FILE * history;
     
 	regex_t regex;
     int reti;
@@ -154,17 +186,8 @@ int main(int argc, char ** argv){
 			char *b =  trim(line + 2);
 			printf("comando nº: %d \t %s\n",contador,b);
 
-			// ABRIR RESULTN.TXT
-            char firstDollar[50];
-            char append[50];
-            char contadorString[5];
-            strcpy (firstDollar, "tmp/result");
-            strcpy (append, ".txt");
-            sprintf(contadorString,"%d",contador); // int to string
-            strcat(firstDollar, contadorString);
-            strcat(firstDollar,append);
-            // ABRIR RESULTN.TXT
-			result1 =fopen(firstDollar,"wr+");
+            strcatFilename(contador); // ABRIR RESULTN.TXT
+			result1 =fopen(filename,"wr+");
 
             int p=fork();
             if(p==0){
@@ -175,7 +198,6 @@ int main(int argc, char ** argv){
                 
             }
             else{
-                //wait(0);
                 int status;
                 wait(&status); 
                 
@@ -189,7 +211,7 @@ int main(int argc, char ** argv){
 
                 fputs(">>>\n",out);
                 FILE * result2;
-                result2 =fopen(firstDollar,"r");
+                result2 =fopen(filename,"r");
                 //escrever para out.txt
                 while ((read2 = getline(&line2, &len2, result2)) != -1){
                         fputs(line2,out);
@@ -198,8 +220,6 @@ int main(int argc, char ** argv){
                 }
             
         }
-
-
         //sleep(2);
 
         //---------------------------------------------------------------COMANDO COM PIPE----------------------------------------------------------------------------
@@ -208,35 +228,17 @@ int main(int argc, char ** argv){
             char *b =  trim(line + 3);
             contador++;
 			printf("comando nº: %d \t %s\n",contador,b);
-            
-            // ABRIR RESULTN.TXT           MUDAR OS NOMES DISTO!!!!
-            char filename[50];
-            char append[50];
-            char contadorString[5];
-            strcpy (filename, "tmp/result");
-            strcpy (append, ".txt");
-            sprintf(contadorString,"%d",contador); // int to string
-            strcat(filename, contadorString);
-            strcat(filename,append);
-            // ABRIR RESULTN.TXT
-            
+
+
+            strcatFilename(contador);            
             FILE * resultN;
             resultN =fopen(filename,"wr+"); //abre o resultN.txt
             int d=fork();
             if(d==0){
-				
 				// ABRIR RESULTN.TXT
-            	char filename2[50];
-            	char append2[50];
-            	char contadorString2[5];
-            	strcpy (filename2, "tmp/result");
-            	strcpy (append2, ".txt");
-            	sprintf(contadorString2,"%d",contador-1); // int to string
-            	strcat(filename2, contadorString2);
-            	strcat(filename2,append2);
-            	// ABRIR RESULTN.TXT
-
-                result1 =fopen(filename2,"r");
+               	strcatFilename(contador-1);
+            	
+                result1 =fopen(filename,"r");
                 dup2(fileno(result1),0);//STDIN_FILENO
                 dup2(fileno(resultN),1); //STDOUT_FILENO
                 fclose(result1);
@@ -268,7 +270,6 @@ int main(int argc, char ** argv){
 
         
         }
-
         //sleep(2);
 		
         //---------------------------------------------------------------NUMERO DE COMANDO ( $n| )-------------------------------------------------------
@@ -286,34 +287,15 @@ int main(int argc, char ** argv){
 				contador++;
 				printf("comando nº: %d \t %s\t com STDIN do comando %d\n",contador,b,number);
 				
-				// ABRIR RESULTN.TXT       Para colocar o STDOUT
-				char filename[50];
-				char append[50];
-				char contadorString[5];
-				strcpy (filename, "tmp/result");
-				strcpy (append, ".txt");
-				sprintf(contadorString,"%d",contador); // int to string
-				strcat(filename, contadorString);
-				strcat(filename,append);
+				strcatFilename(contador);
 				// ABRIR RESULTN.TXT		Para colocar o STDOUT
 				
 				FILE * resultN;
 				resultN =fopen(filename,"wr+"); //abre o resultN.txt
 				int d=fork();
 				if(d==0){
-					
-					// ABRIR RESULTN.TXT de onde se vai ler o STDIN
-					char filename2[50];
-					char append2[50];
-					char contadorString2[5];
-					strcpy (filename2, "tmp/result");
-					strcpy (append2, ".txt");
-					sprintf(contadorString2,"%d",number); // A CHAVE ESTA AQUI! vai buscar o N de "$N|"  int number = atoi(&line[1]);
-					strcat(filename2, contadorString2);
-					strcat(filename2,append2);
-					// ABRIR RESULTN.TXT		de onde se vai ler o STDIN
-
-					result1 =fopen(filename2,"r");
+                    strcatFilename(number); // A CHAVE ESTA AQUI! vai buscar o N de "$N|"  int number = atoi(&line[1]);
+					result1 =fopen(filename,"r");
 					dup2(fileno(result1),0);//STDIN_FILENO
 					dup2(fileno(resultN),1); //STDOUT_FILENO
 					fclose(result1);
@@ -324,7 +306,7 @@ int main(int argc, char ** argv){
 				else{
 					//wait(0);
                     int status;
-                    wait(&status); 
+                    wait(&status); 	
                     
                     flagErrorFork=forkError(status,b);
                     if( flagErrorFork == 0){ // 0 deu erro no fork
@@ -343,29 +325,16 @@ int main(int argc, char ** argv){
 				}
 
         }
-		
-
-
-
-
-
-
-
 
 
         if (line) free (line);
         line = NULL;
-        //if (line2) free (line2);
-        //line2 = NULL;
     }
                   
-
     fclose(fp);
     fclose(result1);
-    fclose(history);
 	fputs("\n",out);	// se não meter isto depois no re-processamento algo bate mal !!!
 	//sleep(2);
-
     if(flagErrorFork==1 && (running)){   //se flag == 1 e não houve um CTR-C ,então tudo correu bem
         rename("tmp/out.txt",argv[1]);
         removeFilesFromTmp("tmp");
