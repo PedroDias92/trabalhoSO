@@ -3,9 +3,10 @@
  * $ notebook comandos.txt
 Passos do programa:
 1- Cria uma nova directoria "tmp" (temporaria)
-2- Cria um ficheiro um ficheiro "out.txt" , e por cada linha lida do ficheiro de input (neste caso "comandos.txt") copia a linha para o ficheiro "out.txt".
-3- Por cada linha (comando) começado $ ou $| ou $n| executa o comando atraves um "exec" (usando de um processo filho) cria um ficheiro com o nome generico resultN.txt (em que N é o numero do comando)
- na directoria "tmp"
+2- Cria um ficheiro "out.txt" , e por cada linha lida do ficheiro de input (neste caso "comandos.txt") copia a linha para o ficheiro "out.txt".
+3- Por cada linha (comando) começado $ ou $| ou $n| executa o comando atraves um "exec" (usando de um processo filho) cria um ficheiro com o nome generico resultN.txt (em que N é o numero do comando) e
+ copia o resultado deste ficheiro para o "out.txt" acrescentadndo >>> e <<< no inicio e fim . 
+ Todos os ficheiros do tipo "resultN.txt" encontran-se na directoria "tmp"
 4- No fim caso não ocorra nenhum erro na execução dos comandos ou o utilizador não termine o programa (CTR-C) 
 o ficheiro de input é substituido pelo "out.txt"
 5- todo o conteudo da directoria "tmp" é eliminado
