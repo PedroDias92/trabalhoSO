@@ -48,7 +48,7 @@ Este relatório está dividido em várias secções que correspondem aos pontos 
 
 A funcionalidade básica do nosso programa está em ler o nosso \textit{notebook} linha a linha e termina a sua execução até que o ficheiro passado como argumento tenha sido lido pelo \textit{while} até à linha final.
 
-Como existem caractéres especiais no início de cada linha de código de um ficheiro, primeiro temos que fazer o processamento da mesma, filtrando os conteúdos para as variáveis corretas.
+Como podem existem caractéres especiais no início de cada linha de código de um ficheiro, primeiro temos que fazer o processamento da mesma, filtrando os conteúdos para as variáveis corretas.
 ~\\
 
 Imaginemos este exemplo como \textit{stdin} retirado do enunciado:
@@ -105,6 +105,7 @@ Nestes casos, necessitamos então de voltar a executar as linhas de comando do n
 
 ~\\
 % FICHEIRO OU PIPE
+
 A função re-processamento abre então um ficheiro temporário para podermos fazer o \textit{parsing} do nosso ficheiro de entrada, fazendo com que o original não seja imediatamente alterado.
 
 \lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=111, lastline=112]{notebook.c}
@@ -119,12 +120,19 @@ Após isto tudo, usámos a função rename para relocarmos o ficheiro temporári
 \pagebreak
 \section{Detecção de erros / Interrupção}
 
+
+
 Uma das flags é usada para depuração de erros de qualquer fork criado. Se o fork retorna um \textit{status} diferente de sucesso, pode significar que a linha lida contém um comando errado.
 Neste caso, teriamos então de cancelar a execução do nosso \textit{notebook}.
 
 Para resolver isso, recorremos à função forkError,
 
 \lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=76, lastline=76]{notebook.c}
+
+que, ao longo de toda a nossa função main, determina o valor da variável local flagForkError. 
+~\\
+
+A função forkError faz o teste, através de estados de finalização de processos, para que possámos apanhar o estado correto de cada fork criado e sabermos então se podemos interromper o programa ou não.
 ~\\
 
 No entanto também pode haver ação humana e, para isso, o sinal \textit{SIGINT} é enviado para o programa (sinal normalmente relacionado com a combinação de botões \textit{Control+C}).
@@ -133,13 +141,14 @@ Nesse caso, a nossa variável global \textit{running} irá determinar o estado d
 \lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=35, lastline=38]{notebook.c}
 ~\\
 
-A detecção do sinal deve ser inicializada na main pela função de sistema signal.
+A detecção do sinal deve ser inicializada na main pela função de sistema \textit{signal}.
 \raggedbottom
 \pagebreak
 % CAP 2 - - - - - - - -  - - - - 
 
 \chapter{Outras Funcionalidades}
 \section{Histórico de comandos anteriores}
+
 
 %
 %void strcatFilename(int contador){
