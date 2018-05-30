@@ -28,7 +28,9 @@
 \tableofcontents
 \pagebreak
 \chapter{Introdução}
-Com este relatório iremos demonstrar o desenvolvimento de um programa que faz o processamento de ficheiros de formato \textit{notebook}, formato designado pelo trabalho prático. 
+Com este relatório iremos demonstrar o desenvolvimento de um programa que faz o processamento de ficheiros no formato designado pelo trabalho prático.
+
+Um ficheiro de formato \textit{notebook} tem a extensão '.nb'. Este pode conter linhas de código para ser interpretadas pela \textit{shell de sistema}, resultados de execução das respetivas linhas de código e outro tipo de conteúdo tal como documentação.
 
 Ao ser executado, o argumento terá de ter um caminho válido para um ficheiro \textit{notebook} para funcionar corretamente.
 
@@ -46,55 +48,62 @@ Este relatório está dividido em várias secções que correspondem aos pontos 
 
 A funcionalidade básica do nosso programa está em ler o nosso \textit{notebook} linha a linha e termina a sua execução até que o ficheiro passado como argumento tenha sido lido pelo \textit{while} até à linha final.
 
-Este cíclo é o motor de todo o nosso programa, que está a ser controlado através de flags e da função read, que ao ser executada, retorna o valor de bytes que foram lidos. Se este valor retornado for negativo, então o \textit{system call} está a retornar um erro. Esta é então a nossa maneira de parar o cíclo, executando-o até que o nosso read fique sem mais bytes para ler.
-
-\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=179, lastline=179]{notebook.c}
+Como existem caractéres especiais no início de cada linha de código de um ficheiro, primeiro temos que fazer o processamento da mesma, filtrando os conteúdos para as variáveis corretas.
 ~\\
 
-Antes de guardarmos numa variável, a linha lida é processada para que reconheça o conjunto de caratéres especiais para o correto processamento do ficheiro:
+Imaginemos este exemplo como \textit{stdin} retirado do enunciado:
+\begin{verbatim}
+Este comando lista os ficheiros:
+$ ls
+\end{verbatim}
+
+O programa irá fazer o \textit{parsing} das linhas e estas são processadas para que se reconheça o conjunto de caratéres especiais para o correto processamento do ficheiro, sendo eles:
 
 \begin{itemize}
 \item \$; 
 \item \$|;
 \item \$(número)|;
-\item \verb|>>>| e \verb|<<<|
+\item \verb|>>>| e \verb|<<<|.
 \end{itemize}
 
+Uma linha delimitada por qualquer outra expressão diferente dos itens em cima irá ser ignorada e não interpretada como comando (mantida intacta no ficheiro original).
 
-\section{Sinais}
-
-Uma das flags é usada para depuração de erros de qualquer fork criado. Se o fork retorna um \textit{status} diferente de sucesso, pode significar que a linha lida contém um comando errado.
-Neste caso, teriamos então de cancelar a execução do nosso \textit{notebook}.
+Para cada caratér especial, temos então variáveis guardadas para podermos fazer comparações com o ficheiro \textit{notebook}. Neste caso, consideremos a variável '\$' (char * dollar).
 
 
-\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=76, lastline=76]{notebook.c}
+\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=184, lastline=184]{notebook.c}
+
+Através do \textit{if} acima referido e através da função trim:
+
+\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=68, lastline=73]{notebook.c} ~\\
+
+executamos o comando 'ls' através da função 'execl'.
+
+
+\section{Ciclo principal}
+
+O cíclo while que está representado na função 'main' é o motor de todo o nosso programa, que está a ser controlado através de flags e da função read, que ao ser executada, retorna o valor de bytes que foram lidos. Se este valor retornado for negativo, então o \textit{system call} está a retornar um erro. 
+
+Esta é então a nossa maneira de parar o cíclo, executando-o até que o nosso read fique sem mais bytes para ler.
+~\\
+\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=179, lastline=179]{notebook.c}
 ~\\
 
-No entanto também pode haver ação humana e, para isso, o sinal \textit{SIGINT} é enviado para o programa (sinal normalmente relacionado com a combinação de botões \textit{Control+C}).
-Nesse caso, a nossa variável global \textit{running} irá determinar o estado de execução do nosso programa.
+Portanto, se este cíclo terminar com as respectivas flags a retornarem sucesso na saída, o programa substitui o ficheiro processado pelo programa pelo ficheiro  \textit{notebook} original através da função 'rename' e remove então a pasta temporária já não necessária para o processamento (iremos falar mais tarde sobre a sua utilidade).
 
-\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=35, lastline=38]{notebook.c}
-~\\
-
-A detecção do sinal deve ser inicializada na main pela função de sistema signal.
+Se o cíclo não retornar sucesso, a função 'rename' já não será executada para que o ficheiro \textit{notebook} original não seja alterado e remove tudo o que já não é necessário.
 
 
-
-Uma linha delimitada por qualquer outra expressão diferente dos itens em cima irá ser ignorada e não interpretada como comando.
-
-
-\raggedbottom
-\pagebreak
 \section{Re-processamento}
 
 A funcionalidade normal do nosso programa será sempre executar e inserir os nossos resultados entre \verb|>>>| e \verb|<<<|.
 Haverá no entanto alturas em que faremos alterações ao nosso sistema (criamos um ficheiro novo, o \textit{word count} de determinado ficheiro é agora maior, o estado de X dispositivo foi alterado, entre outros). 
 
-\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=104, lastline=104]{notebook.c}
-~\\
-
 Nestes casos, necessitamos então de voltar a executar as linhas de comando do nosso \textit{notebook}.
 
+\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=104, lastline=104]{notebook.c}
+
+~\\
 % FICHEIRO OU PIPE
 A função re-processamento abre então um ficheiro temporário para podermos fazer o \textit{parsing} do nosso ficheiro de entrada, fazendo com que o original não seja imediatamente alterado.
 
@@ -106,18 +115,44 @@ Executamos então outro ciclo da mesma natureza do \textit{while} da função ma
 Após isto tudo, usámos a função rename para relocarmos o ficheiro temporário para o original.
 
 \lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=134, lastline=134]{notebook.c}
-~\\
 
-
-
-
-
+\pagebreak
 \section{Detecção de erros / Interrupção}
 
+Uma das flags é usada para depuração de erros de qualquer fork criado. Se o fork retorna um \textit{status} diferente de sucesso, pode significar que a linha lida contém um comando errado.
+Neste caso, teriamos então de cancelar a execução do nosso \textit{notebook}.
+
+Para resolver isso, recorremos à função forkError,
+
+\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=76, lastline=76]{notebook.c}
+~\\
+
+No entanto também pode haver ação humana e, para isso, o sinal \textit{SIGINT} é enviado para o programa (sinal normalmente relacionado com a combinação de botões \textit{Control+C}).
+Nesse caso, a nossa variável global \textit{running} irá determinar o estado de execução do nosso programa.
+
+\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=35, lastline=38]{notebook.c}
+~\\
+
+A detecção do sinal deve ser inicializada na main pela função de sistema signal.
+\raggedbottom
+\pagebreak
 % CAP 2 - - - - - - - -  - - - - 
 
 \chapter{Outras Funcionalidades}
 \section{Histórico de comandos anteriores}
+
+%
+%void strcatFilename(int contador){
+%    char append[50];
+%    char contadorString[5];
+%    strcpy (filename, "tmp/result");
+%    strcpy (append, ".txt");
+%    sprintf(contadorString,"%d",contador); // int to string
+%    strcat(filename, contadorString);
+%    strcat(filename,append);
+%}
+%
+
 \section{Execução de conjuntos de comandos}
 
 % CAP 3 - - - - - - - -  - - - - 
