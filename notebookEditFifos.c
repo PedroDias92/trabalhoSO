@@ -25,11 +25,13 @@ o ficheiro de input é substituido pelo "out.txt"
 #include <errno.h>
 #include <sys/stat.h> // para criar o directorio /tmp
 #include <dirent.h> //para eliminar os conteudos de "/tmp"
-
+#define MAX_BUF 1024
 
 
 
 char filename[50];
+char fifoName[50]; // 31 Maio
+
 
 //Para apanhar o CTRL-C
 static volatile int running = 1;
@@ -37,6 +39,13 @@ void handler(int dummy){
     running = 0;
 }
 
+void strcatFifo(int contador){ // 31 Maio
+    char append[50]; 
+    char contadorString[5];
+    strcpy (fifoName, "tmp/result");
+    sprintf(contadorString,"%d",contador);
+    strcat(fifoName, contadorString);
+}
 
 void strcatFilename(int contador){
     char append[50];
@@ -105,7 +114,7 @@ void re_processamento(char * file){
     char * line = NULL;
     size_t bufsize = 32;
     size_t len=0;
-    ssize_t read=2;
+    ssize_t readL=2;
     FILE * fp; 
     fp = fopen(file, "r");
     FILE *REDO;
@@ -115,14 +124,14 @@ void re_processamento(char * file){
     if (fp == NULL)
         exit(EXIT_FAILURE);
 
-    while ((read = getline(&line, &len, fp)) != -1){
+    while ((readL = getline(&line, &len, fp)) != -1){
         if(strncmp(">>>\n",line,strlen(">>>\n"))==0){
-            read = getline(&line, &len, fp);
+            readL = getline(&line, &len, fp);
             while(strncmp("<<<\n",line,strlen("<<<\n"))!=0)
-                read = getline(&line, &len, fp);
+                readL = getline(&line, &len, fp);
         }
         if(strncmp("<<<\n",line,strlen("<<<\n"))==0){
-            read = getline(&line, &len, fp);
+            readL = getline(&line, &len, fp);
         }
         //printf("%s",line);
         fputs(line,REDO);
@@ -138,7 +147,6 @@ void re_processamento(char * file){
 }
 
 int main(int argc, char ** argv){
-    
     signal(SIGINT, handler);  //CTRL-C
 	char *REDO = argv[1];
     re_processamento(REDO);   //Elimina todo o conteudo entre >>> e <<< do ficheiro de input
@@ -153,16 +161,18 @@ int main(int argc, char ** argv){
     FILE * fp;
     FILE * result1;
     FILE * result2;
+
     
 	regex_t regex;
     int reti;
-
+    int descritorFifo[2];
     char *comands[10];
     char * line = NULL;
     char * line2 = NULL;
     size_t bufsize = 32;
     size_t len,len2= 0;
-    ssize_t read,read2;
+    ssize_t readL,readL2; // 31 Maio : TAVA A FAZER CONFLITO COM READS
+    char buf[MAX_BUF]; // 31 Maio
     fp = fopen(argv[1], "r");
     char *dollar="$ ";
     char *dollarPipe="$| ";
@@ -176,7 +186,7 @@ int main(int argc, char ** argv){
     if (fp == NULL)
         exit(EXIT_FAILURE);
 
-    while ((read = getline(&line, &len, fp)) != -1 && flagErrorFork==1 && (running)) {
+    while ((readL = getline(&line, &len, fp)) != -1 && flagErrorFork==1 && (running)) {
         fputs(line,out);
 
         //---------------------------------------------COMANDO SIMPLES--------------------------------------------
@@ -187,42 +197,59 @@ int main(int argc, char ** argv){
 			char *b =  trim(line + 2);
 			printf("comando nº: %d \t %s\n",contador,b);
 
-            strcatFilename(contador); // ABRIR RESULTN.TXT
-			result1 =fopen(filename,"wr+");
+            strcatFilename(contador);
+
+            // 31 Maio
+            strcatFifo(contador);
+            int fifoCheck = 0;
+            fifoCheck = mkfifo (fifoName,0666);
+            if (fifoCheck == 1) {
+                perror("Erro na criação do FIFO");
+                exit(-1);
+            } 
+            // Cria direito
 
             int p=fork();
             if(p==0){
-                dup2(fileno(result1),1); //STDOUT_FILENO
-				fclose(result1);
+                descritorFifo[1] = open(fifoName,O_RDONLY); // Parece que demora tempo a fazer isto
+				dup2(descritorFifo[1],1);
+                close(descritorFifo[1]);
                 execl("/bin/sh", "/bin/sh", "-c", b, NULL);
                 exit(-1);
-                
-            }
+                // já reparei que ele consegue escrever no fifo após isto.
+            }   
+            // O problema tá aqui!
             else{
                 int status;
-                wait(&status); 
+                wait(&status); //Não sei se é por causa disto
                 
                 flagErrorFork=forkError(status,b);
-                if( flagErrorFork == 0){ // 0 deu erro no fork
+                if( flagErrorFork == 0){ 
                     break;
                 }
+                printf("->passou pelo flagErrorFork\n"); // O wait de lá de cima parece atrasar isto.
+                descritorFifo[0] = open(fifoName,O_RDONLY); // ISTO Não tá a funcionar! Não faço ideia pq
+                printf("->passou pelo open\n");
                 
-                
-                fclose(result1);
+                //FILE *resultFifo = fdopen(descritorFifo[0], "w"); // Isto era a testar se depois podia fazer getlines.
 
                 fputs(">>>\n",out);
-                FILE * result2;
-                result2 =fopen(filename,"r");
-                //escrever para out.txt
-                while ((read2 = getline(&line2, &len2, result2)) != -1){
-                        fputs(line2,out);
-                    } 
+
+                while (read(descritorFifo[0], &buf, sizeof(buf)) > 0){
+                    fputs(buf,out);
+                    fputs("\0",out);
+                } 
+                
+                printf("passou pelo while\n");
+
+                //write(descritorFifo, argv[1], strlen(argv[1]));
                 fputs("<<<\n",out);  
-                }
+                printf("Lido pelo fifo %s\n", fifoName);
+                close(descritorFifo[0]);
+            }
             
         }
-        //sleep(2);
-
+        
         //---------------------------------------------------------------COMANDO COM PIPE----------------------------------------------------------------------------
 		//-----------------------------------------------------------------------------------------------------------------------------------------------------------
         if(strncmp(dollarPipe,line,strlen(dollarPipe))==0 && (running)){     
@@ -262,7 +289,7 @@ int main(int argc, char ** argv){
                 FILE * result2;
                 result2 =fopen(filename,"r");
                 //escrever para out.txt
-                while ((read2 = getline(&line2, &len2, result2)) != -1){
+                while ((readL2 = getline(&line2, &len2, result2)) != -1){
                         fputs(line2,out);
                     } 
                 fputs("<<<\n",out);  
@@ -318,7 +345,7 @@ int main(int argc, char ** argv){
 					FILE * result2;
 					result2 =fopen(filename,"r");
 					//escrever para out.txt
-					while ((read2 = getline(&line2, &len2, result2)) != -1){
+					while ((readL2 = getline(&line2, &len2, result2)) != -1){
 							fputs(line2,out);
 						} 
 					fputs("<<<\n",out);
@@ -338,7 +365,7 @@ int main(int argc, char ** argv){
 	//sleep(2);
     if(flagErrorFork==1 && (running)){   //se flag == 1 e não houve um CTR-C ,então tudo correu bem
         rename("tmp/out.txt",argv[1]);
-        removeFilesFromTmp("tmp");
+        //removeFilesFromTmp("tmp");
         
     }   
     else{                   //senão elimina todo o conteudo da pasta tmp é apagado
@@ -349,4 +376,3 @@ int main(int argc, char ** argv){
 	
     
 }
-
