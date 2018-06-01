@@ -1,3 +1,7 @@
+make
+
+ou
+
 gcc notebook.c -o notebook
 ./notebook comandos.txt
 
