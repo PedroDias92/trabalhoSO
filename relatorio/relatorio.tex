@@ -73,11 +73,11 @@ Para cada caratér especial, temos então variáveis guardadas para podermos faz
 
 \lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=184, lastline=184]{notebook.c}
 
-Através do \textit{if} acima referido e através da função trim:
+Através do \textit{if} acima referido e:
 
 \lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=68, lastline=73]{notebook.c} ~\\
 
-executamos o comando 'ls' através da função 'execl'.
+através da função trim, podemos então ignorar o que não é necessário na nossa linha e executamos o comando 'ls' através da função 'execl'.
 
 
 \section{Ciclo principal}
@@ -149,23 +149,62 @@ A detecção do sinal deve ser inicializada na main pela função de sistema \te
 \chapter{Outras Funcionalidades}
 \section{Histórico de comandos anteriores}
 
+Nesta secção, decidimos usar a biblioteca Regex.
+\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=24, lastline=24]{notebook.c}
 
-%
-%void strcatFilename(int contador){
-%    char append[50];
-%    char contadorString[5];
-%    strcpy (filename, "tmp/result");
-%    strcpy (append, ".txt");
-%    sprintf(contadorString,"%d",contador); // int to string
-%    strcat(filename, contadorString);
-%    strcat(filename,append);
-%}
-%
+A funcionalidade das expressões regulares para podermos comparar com o conjunto de caratéres especiais \verb|$n|| era o ideal para podermos continuar a desenvolver esta parte do trabalho.
 
+A partir daqui, houve duas ideias diferentes para o que haveriamos de fazer. Uma das ideias seria a criação de um ficheiro num formato básico de texto chamado \textit{history}, em que ao longo da leitura das linhas com comandos do nosso \textit{notebook}, o programa copiava o comando e colava como uma nova linha no nosso histórico de comanados. 
+
+Quando o programa reconhecesse o conjunto de caratéres especiais \verb|$n||, guardávamos 'n' numa variável como o número do comando da lista de comandos anteriores no \textit{notebook}. 'n' seria então o número da linha existente no nosso ficheiro \textit{history} para quando quiséssemos que fosse executada.
+~\\
+
+Em vez desse procedimento, optamos por outra solução.
+
+Dada uma linha de comando executada pelo programa, é então criado um ficheiro (de seu nome resultN.txt) para que o output desse mesmo comando fosse armazenado.
+
+a variável N no nome do ficheiro é uma variável (int), significando então o número da linha que foi executada.
+
+Através de funções da biblioteca \textit{string.h}, conseguimos converter a variável N para que possámos escrever e ler corretamente os ficheiros resultN.
+~\\
+\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=41, lastline=49]{notebook.c}
+
+\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=190, lastline=190]{notebook.c} ~\\
+
+Em resumo, temos então a mesma quantidade de linhas de comando executadas e ficheiros resultN, para o output ser usado de várias maneiras possíveis, como veremos na secção seguinte. 
+\pagebreak
 \section{Execução de conjuntos de comandos}
+
+Resta-nos então falar de um conjunto de caratéres especiais referido anteriormente. A expressão \verb|$|| remete-nos para uma execução em pipe e está guardada numa variável local no nosso programa (char * dollarPipe) para que possámos mais uma vez fazer as comparações corretamente.
+~\\
+\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=228, lastline=228]{notebook.c} 
+
+Mais uma vez através da função trim, "cortamos" o que não é necessário na nossa linha para executar o comando.
+\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=68, lastline=73]{notebook.c} ~\\
+
+No entanto, desta vez, precisamos do comando anterior a este, visto que é uma execução em pipeline.
+
+Usando o método da secção anterior, como estamos então a guardar o output dos comandos que executamos anteriormente, conseguimos ler o output do comando anterior.
+
+Para isso decrementamos a variável N para podermos aceder ao ficheiro resultN correto do comando anterior.
+\lstinputlisting[breaklines=true, keywordstyle=\color{blue},frame=single,language=C, firstline=240, lastline=240]{notebook.c} 
+~\\
+
+A partir daí, com a system call fork(), o processo pai e o processo filho fazem então a execução em pipeline.
+
+
 
 % CAP 3 - - - - - - - -  - - - - 
 
 
 \chapter{Conclusão}
+
+Após várias semanas de desenvolvimento, há que realçar alguns pontos importantes, como a certa dificuldade em utilizar funções de baixo nível (implementação de pipes com nome, correta comunicação entre forks, entre outros). 
+
+No entanto, houve sempre boas ideias vários e boa comunicação, e após correcções e vários testes ao nosso trabalho, estamos satisfeitos por ter ultrapassado esses entraves e ter concluído o projeto.
+
+Ficamos a compreender mais sobre as system calls de baixo nível e em que contexto usá-las, para termos um maior controlo de processos e ficheiros. 
+
+Com o desenvolvimento destes projetos, haverá também sempre a expansão do nosso conhecimento e interesse em sistemas UNIX e UNIX-like.
+
 \end{document}
