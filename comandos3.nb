@@ -1,0 +1,11 @@
+Este comando lista os ficheiros:
+$ ls -l | sort | grep "notebook"
+
+
+A primeira linha do comando acima
+$| head -1
+
+
+
+
+

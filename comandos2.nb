@@ -1,0 +1,23 @@
+Este comando lista os ficheiros:
+$ ls
+
+A primeira linha do comando acima
+$| head -1
+
+
+Configuração da placa de rede.
+$ ifconfig
+
+
+A primeira linha do comando acima
+$| head -1
+
+Mostra data
+$ date
+
+A primeira linha do terceiro comando
+$3| head -1
+
+
+
+

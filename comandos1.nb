@@ -1,0 +1,8 @@
+Este comando lista os ficheiros:
+$ ls
+
+Agora podemos ordenar estes ficheiros:
+$| sort
+
+
+

@@ -138,215 +138,224 @@ void re_processamento(char * file){
 }
 
 int main(int argc, char ** argv){
-    
+
+    //printf(" ARGC %d\n", argc);
     signal(SIGINT, handler);  //CTRL-C
-	char *REDO = argv[1];
-    re_processamento(REDO);   //Elimina todo o conteudo entre >>> e <<< do ficheiro de input
-
-    //cria a pasta /tmp/ com os resultsN
-    struct stat st = {0};
-
-    if (stat("tmp", &st) == -1) {
-        mkdir("tmp", 0700);
-    }
-
-    FILE * fp;
-    FILE * result1;
-    FILE * result2;
-    
-	regex_t regex;
-    int reti;
-
-    char *comands[10];
-    char * line = NULL;
-    char * line2 = NULL;
-    size_t bufsize = 32;
-    size_t len,len2= 0;
-    ssize_t read,read2;
-    fp = fopen(argv[1], "r");
-    char *dollar="$ ";
-    char *dollarPipe="$| ";
-    
-    int flagErrorFork=1;
-    
-    FILE *out;
-    out = fopen("tmp/out.txt", "wr+");
-    int contador=0,contComandos=0;
-
-    if (fp == NULL)
-        exit(EXIT_FAILURE);
-
-    while ((read = getline(&line, &len, fp)) != -1 && flagErrorFork==1 && (running)) {
-        fputs(line,out);
-
-        //---------------------------------------------COMANDO SIMPLES--------------------------------------------
-        //-------------------------------------------------------------------------------------------------------
-        if(strncmp(dollar,line,strlen(dollar))==0 && (running)){
-			contador++;
-			contComandos++;
-			char *b =  trim(line + 2);
-			printf("comando nº: %d \t %s\n",contador,b);
-
-            strcatFilename(contador); // ABRIR RESULTN.TXT
-			result1 =fopen(filename,"wr+");
-
-            int p=fork();
-            if(p==0){
-                dup2(fileno(result1),1); //STDOUT_FILENO
-				fclose(result1);
-                execl("/bin/sh", "/bin/sh", "-c", b, NULL);
-                exit(-1);
-                
-            }
-            else{
-                int status;
-                wait(&status); 
-                
-                flagErrorFork=forkError(status,b);
-                if( flagErrorFork == 0){ // 0 deu erro no fork
-                    break;
-                }
-                
-                
-                fclose(result1);
-
-                fputs(">>>\n",out);
-                FILE * result2;
-                result2 =fopen(filename,"r");
-                //escrever para out.txt
-                while ((read2 = getline(&line2, &len2, result2)) != -1){
-                        fputs(line2,out);
-                    } 
-                fputs("<<<\n",out);  
-                }
-            
-        }
-        //sleep(2);
-
-        //---------------------------------------------------------------COMANDO COM PIPE----------------------------------------------------------------------------
-		//-----------------------------------------------------------------------------------------------------------------------------------------------------------
-        if(strncmp(dollarPipe,line,strlen(dollarPipe))==0 && (running)){     
-            char *b =  trim(line + 3);
-            contador++;
-			printf("comando nº: %d \t %s\n",contador,b);
-
-
-            strcatFilename(contador);            
-            FILE * resultN;
-            resultN =fopen(filename,"wr+"); //abre o resultN.txt
-            int d=fork();
-            if(d==0){
-				// ABRIR RESULTN.TXT
-               	strcatFilename(contador-1);
-            	
-                result1 =fopen(filename,"r");
-                dup2(fileno(result1),0);//STDIN_FILENO
-                dup2(fileno(resultN),1); //STDOUT_FILENO
-                fclose(result1);
-                fclose(resultN);
-                execl("/bin/sh", "/bin/sh", "-c", b, NULL);
-                exit(-1);
-            }
-            else{
-                //wait(0);
-                int status;
-                wait(&status); 
-                
-                flagErrorFork=forkError(status,b);
-                if( flagErrorFork == 0){ // 0 deu erro no fork
-                    break;
-                }
-
-                fclose(result1);
-                fputs(">>>\n",out);
-                FILE * result2;
-                result2 =fopen(filename,"r");
-                //escrever para out.txt
-                while ((read2 = getline(&line2, &len2, result2)) != -1){
-                        fputs(line2,out);
-                    } 
-                fputs("<<<\n",out);  
-            }
-
-
+	for(int j=1;j<argc;j++){
+        char *REDO = argv[j];
         
+        re_processamento(REDO);   //Elimina todo o conteudo entre >>> e <<< do ficheiro de input
+
+        //cria a pasta /tmp/ com os resultsN
+        struct stat st = {0};
+
+        if (stat("tmp", &st) == -1) {
+            mkdir("tmp", 0700);
         }
-        //sleep(2);
-		
-        //---------------------------------------------------------------NUMERO DE COMANDO ( $n| )-------------------------------------------------------
-        /* Compile regular expression */
-        reti = regcomp(&regex, "$[1-9][0-9]*|", 0);
-        if( reti ){ fprintf(stderr, "Could not compile regex\n"); exit(1); }
 
-		/* Execute regular expression */
-        reti = regexec(&regex, line, 0, NULL, 0);
-        if( !reti && (running)){
-                //printf("\n Match %s \n",line);
+        FILE * fp;
+        FILE * result1;
+        FILE * result2;
+        
+    	regex_t regex;
+        int reti;
 
-				char *b =  trim(line + 4);
-				int number = atoi(&line[1]);
-				contador++;
-				printf("comando nº: %d \t %s\t com STDIN do comando %d\n",contador,b,number);
-				
-				strcatFilename(contador);
-				// ABRIR RESULTN.TXT		Para colocar o STDOUT
-				
-				FILE * resultN;
-				resultN =fopen(filename,"wr+"); //abre o resultN.txt
-				int d=fork();
-				if(d==0){
-                    strcatFilename(number); // A CHAVE ESTA AQUI! vai buscar o N de "$N|"  int number = atoi(&line[1]);
-					result1 =fopen(filename,"r");
-					dup2(fileno(result1),0);//STDIN_FILENO
-					dup2(fileno(resultN),1); //STDOUT_FILENO
-					fclose(result1);
-					fclose(resultN);
-					execl("/bin/sh", "/bin/sh", "-c", b, NULL);
+        char *comands[10];
+        char * line = NULL;
+        char * line2 = NULL;
+        size_t bufsize = 32;
+        size_t len,len2= 0;
+        ssize_t read,read2;
+        fp = fopen(argv[j], "r");
+        char *dollar="$ ";
+        char *dollarPipe="$| ";
+        
+        int flagErrorFork=1;
+        
+        FILE *out;
+        out = fopen("tmp/out.txt", "wr+");
+        int contador=0,contComandos=0;
+
+        if (fp == NULL)
+            exit(EXIT_FAILURE);
+        printf("\n\n\tFicheiro: %s\n",argv[j] );
+        while ((read = getline(&line, &len, fp)) != -1 && flagErrorFork==1 && (running)) {
+            fputs(line,out);
+            
+
+            //---------------------------------------------COMANDO SIMPLES--------------------------------------------
+            //-------------------------------------------------------------------------------------------------------
+            if(strncmp(dollar,line,strlen(dollar))==0 && (running)){
+    			//printf("DOLLAR\n" );
+                contador++;
+    			contComandos++;
+    			char *b =  trim(line + 2);
+    			printf("comando nº: %d \t %s\n",contador,b);
+
+                strcatFilename(contador); // ABRIR RESULTN.TXT
+    			result1 =fopen(filename,"wr+");
+
+                int p=fork();
+                if(p==0){
+                    dup2(fileno(result1),1); //STDOUT_FILENO
+    				fclose(result1);
+                    execl("/bin/sh", "/bin/sh", "-c", b, NULL);
                     exit(-1);
-				}
-				else{
-					//wait(0);
+                    
+                }
+                else{
                     int status;
-                    wait(&status); 	
+                    wait(&status); 
                     
                     flagErrorFork=forkError(status,b);
                     if( flagErrorFork == 0){ // 0 deu erro no fork
                         break;
                     }
-					fclose(result1);
-					fputs(">>>\n",out);
-					FILE * result2;
-					result2 =fopen(filename,"r");
-					//escrever para out.txt
-					while ((read2 = getline(&line2, &len2, result2)) != -1){
-							fputs(line2,out);
-						} 
-					fputs("<<<\n",out);
-					//result1 =fopen("result1.txt","w"); // ELIMINA CONTEUDOS DO FICHEIRO PARA EXECUTAR PROXIMO COMANDO  
-				}
+                    
+                    
+                    fclose(result1);
 
+                    fputs(">>>\n",out);
+                    FILE * result2;
+                    result2 =fopen(filename,"r");
+                    //escrever para out.txt
+                    while ((read2 = getline(&line2, &len2, result2)) != -1){
+                            fputs(line2,out);
+                        } 
+                    fputs("<<<\n",out);  
+                    }
+                
+            }
+            //sleep(2);
+
+            //---------------------------------------------------------------COMANDO COM PIPE----------------------------------------------------------------------------
+    		//-----------------------------------------------------------------------------------------------------------------------------------------------------------
+            if(strncmp(dollarPipe,line,strlen(dollarPipe))==0 && (running)){  
+                //printf("DOLLAR_PIPE\n" );   
+                char *b =  trim(line + 3);
+                contador++;
+    			printf("comando nº: %d \t %s\n",contador,b);
+
+
+                strcatFilename(contador);            
+                FILE * resultN;
+                resultN =fopen(filename,"wr+"); //abre o resultN.txt
+                int d=fork();
+                if(d==0){
+    				// ABRIR RESULTN.TXT
+                   	strcatFilename(contador-1);
+                	
+                    result1 =fopen(filename,"r");
+                    dup2(fileno(result1),0);//STDIN_FILENO
+                    dup2(fileno(resultN),1); //STDOUT_FILENO
+                    fclose(result1);
+                    fclose(resultN);
+                    execl("/bin/sh", "/bin/sh", "-c", b, NULL);
+                    exit(-1);
+                }
+                else{
+                    //wait(0);
+                    int status;
+                    wait(&status); 
+                    
+                    flagErrorFork=forkError(status,b);
+                    if( flagErrorFork == 0){ // 0 deu erro no fork
+                        break;
+                    }
+
+                    fclose(result1);
+                    fputs(">>>\n",out);
+                    FILE * result2;
+                    result2 =fopen(filename,"r");
+                    //escrever para out.txt
+                    while ((read2 = getline(&line2, &len2, result2)) != -1){
+                            fputs(line2,out);
+                        } 
+                    fputs("<<<\n",out);  
+                }
+
+
+            
+            }
+            //sleep(2);
+    		
+            //---------------------------------------------------------------NUMERO DE COMANDO ( $n| )-------------------------------------------------------
+            /* Compile regular expression */
+            reti = regcomp(&regex, "$[1-9][0-9]*|", 0);
+            if( reti ){ fprintf(stderr, "Could not compile regex\n"); exit(1); }
+
+    		/* Execute regular expression */
+            reti = regexec(&regex, line, 0, NULL, 0);
+            if( !reti && (running)){
+                    //printf("\n Match %s \n",line);
+                    //printf("DOLLAR_NUMBER\n" );
+    				char *b =  trim(line + 4);
+    				int number = atoi(&line[1]);
+    				contador++;
+    				printf("comando nº: %d \t %s\t com STDIN do comando %d\n",contador,b,number);
+    				
+    				strcatFilename(contador);
+    				// ABRIR RESULTN.TXT		Para colocar o STDOUT
+    				
+    				FILE * resultN;
+    				resultN =fopen(filename,"wr+"); //abre o resultN.txt
+    				int d=fork();
+    				if(d==0){
+                        strcatFilename(number); // A CHAVE ESTA AQUI! vai buscar o N de "$N|"  int number = atoi(&line[1]);
+    					result1 =fopen(filename,"r");
+    					dup2(fileno(result1),0);//STDIN_FILENO
+    					dup2(fileno(resultN),1); //STDOUT_FILENO
+    					fclose(result1);
+    					fclose(resultN);
+    					execl("/bin/sh", "/bin/sh", "-c", b, NULL);
+                        exit(-1);
+    				}
+    				else{
+    					//wait(0);
+                        int status;
+                        wait(&status); 	
+                        
+                        flagErrorFork=forkError(status,b);
+                        if( flagErrorFork == 0){ // 0 deu erro no fork
+                            break;
+                        }
+    					fclose(result1);
+    					fputs(">>>\n",out);
+    					FILE * result2;
+    					result2 =fopen(filename,"r");
+    					//escrever para out.txt
+    					while ((read2 = getline(&line2, &len2, result2)) != -1){
+    							fputs(line2,out);
+    						} 
+    					fputs("<<<\n",out);
+    					//result1 =fopen("result1.txt","w"); // ELIMINA CONTEUDOS DO FICHEIRO PARA EXECUTAR PROXIMO COMANDO  
+    				}
+
+            }
+
+
+            if (line) free (line);
+            line = NULL;
         }
+                      
+        fclose(fp);
+        fclose(result1);
+    	fputs("\n",out);	// se não meter isto depois no re-processamento algo bate mal !!!
+    	fclose(out);
 
-
-        if (line) free (line);
-        line = NULL;
-    }
-                  
-    fclose(fp);
-    fclose(result1);
-	fputs("\n",out);	// se não meter isto depois no re-processamento algo bate mal !!!
-	//sleep(2);
-    if(flagErrorFork==1 && (running)){   //se flag == 1 e não houve um CTR-C ,então tudo correu bem
-        rename("tmp/out.txt",argv[1]);
-        removeFilesFromTmp("tmp");
+        //sleep(2);
+        if(flagErrorFork==1 && (running)){   //se flag == 1 e não houve um CTR-C ,então tudo correu bem
+            rename("tmp/out.txt",argv[j]);
+            removeFilesFromTmp("tmp");
+            
+        }   
+        else{                   //senão elimina todo o conteudo da pasta tmp é apagado
+            removeFilesFromTmp("tmp");
+            
+        }
         
-    }   
-    else{                   //senão elimina todo o conteudo da pasta tmp é apagado
-        removeFilesFromTmp("tmp");
-        
-    }
-    exit(EXIT_SUCCESS);
 	
-    
-}
+    }
 
+    exit(EXIT_SUCCESS);
+}
